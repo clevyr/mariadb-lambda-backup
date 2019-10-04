@@ -1,4 +1,4 @@
-FROM postgres:11-alpine as postgres
+FROM mariadb:10 as maria
 FROM python:3.7-alpine
 
 WORKDIR /app
@@ -6,8 +6,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
-COPY --from=postgres /usr/local/bin/pg_dump /usr/local/bin/pg_dump
-COPY --from=postgres /usr/local/lib/libpq.so.5.11 /usr/local/lib/libpq.so.5
+COPY --from=maria /usr/bin/mysqldump /usr/bin/mysqldump
 
 COPY . .
 

@@ -14,30 +14,37 @@ import sys
 
 s3 = boto.resource("s3")
 
+
 def exit(error=None):
     if error is not None:
         print('Error occured, sending email...')
         print(error)
-        email(error, environ.get('EMAIL_FROM'), environ.get('EMAIL_TO').split(';'))
+        email(error, environ.get('EMAIL_FROM'),
+              environ.get('EMAIL_TO').split(';'))
+
 
 def main():
     try:
         vault_secret = environ.get("VAULT_SECRET")
         bucket_name = environ.get("BUCKET_NAME")
-        postgres_host = environ.get("POSTGRES_HOST")
-        username = environ.get("POSTGRES_USERNAME")
-        password = environ.get("POSTGRES_PASSWORD")
-        database = environ.get("POSTGRES_DATABASE")
+        mysql_host = environ.get("MYSQL_HOST")
+        username = environ.get("MYSQL_USERNAME")
+        password = environ.get("MYSQL_PASSWORD")
+        database = environ.get("MYSQL_DATABASE")
 
-        if postgres_host is None:
+        if mysql_host is None:
             questions = [
-                inquirer.Text('postgres_host', message='What is the host of the Postgres instance?'),
-                inquirer.Text('postgres_database', message='What is the host of the Postgres instance?'),
-                inquirer.Text('username', message='What is the username for postgres?'),
-                inquirer.Password('password', message='What is the password for postgres?'),
+                inquirer.Text(
+                    'mysql_host', message='What is the host of the Postgres instance?'),
+                inquirer.Text(
+                    'postgres_database', message='What is the host of the Postgres instance?'),
+                inquirer.Text(
+                    'username', message='What is the username for postgres?'),
+                inquirer.Password(
+                    'password', message='What is the password for postgres?'),
             ]
             answers = inquirer.prompt(questions)
-            postgres_host = answers['postgres_host']
+            mysql_host = answers['mysql_host']
             database = answers['postgres_database']
             username = answers['username']
             password = answers['password']
@@ -59,28 +66,29 @@ def main():
             except Exception as e:
                 exit(e)
 
-
             secret = client.read(vault_secret)['data']
             username = secret['username']
             password = secret['password']
             database = secret['database']
 
-        filename = "/tmp/backup-{}.tar".format(strftime("%Y-%m-%d_%H%M%S", gmtime()))
+        filename = "/tmp/backup-{}.sql".format(
+            strftime("%Y-%m-%d_%H%M%S", gmtime()))
 
         completed_process = None
         with open(filename, 'w') as backup:
             completed_process = subprocess.run(
-                [f'/usr/local/bin/pg_dump', '-h', postgres_host, '-U', username, '-F', 't', database],
-                stdout=backup,
-                env={'PGPASSWORD': password})
-            
+                [f'/usr/bin/mysqldump', '-h', mysql_host,
+                    '-u', username, '--password', password, database],
+                stdout=backup)
+
         try:
             completed_process.check_returncode()
         except subprocess.CalledProcessError as e:
             exit(e)
 
         if bucket_name is not None:
-            s3.Bucket(bucket_name).upload_file(filename, path.basename(filename))
+            s3.Bucket(bucket_name).upload_file(
+                filename, path.basename(filename))
         else:
             print(f"Backup is available at {filename}")
         print("Done")
@@ -88,11 +96,13 @@ def main():
     except Exception as e:
         exit(e)
 
+
 def email(error, from_address, addresses):
     try:
         ses = boto.client('ses', region_name=environ.get('SES_REGION'))
         bucket_name = environ.get('BUCKET_NAME')
-        errString = ''.join(traceback.format_exception(etype=type(error), value=error, tb=error.__traceback__))
+        errString = ''.join(traceback.format_exception(
+            etype=type(error), value=error, tb=error.__traceback__))
         response = ses.send_email(
             Source=from_address,
             Destination={
@@ -113,8 +123,10 @@ def email(error, from_address, addresses):
         print('Error sending email...')
         print(e)
 
+
 if __name__ == "__main__":
     main()
+
 
 def lambda_handler(_, __):
     main()
