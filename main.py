@@ -78,8 +78,9 @@ def main():
         with open(filename, 'w') as backup:
             completed_process = subprocess.run(
                 [f'/usr/bin/mysqldump', '-h', mysql_host,
-                    '-u', username, '--password', password, database],
-                stdout=backup)
+                    '-u', username, database],
+                stdout=backup,
+                env={'MYSQL_PWD': password})
 
         try:
             completed_process.check_returncode()
