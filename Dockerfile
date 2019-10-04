@@ -1,5 +1,5 @@
 FROM mariadb:10 as maria
-FROM python:3.7-alpine
+FROM python:3.7
 
 WORKDIR /app
 
