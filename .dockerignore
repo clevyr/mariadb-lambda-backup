@@ -1,7 +1,8 @@
-.gitignore
 .dockerignore
-lambda.zip
-README.md
+.git
+.gitignore
 Dockerfile
-buildzip.sh
+README.md
 bin/darwin/
+buildzip.sh
+lambda.zip
