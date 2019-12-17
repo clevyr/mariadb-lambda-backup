@@ -1,7 +1,6 @@
 import json
 from os import environ, mkdir, path, getcwd
 from threading import Timer
-import tarfile
 from time import strftime, gmtime
 
 import inquirer
@@ -71,21 +70,22 @@ def main():
             password = secret['password']
             database = secret['database']
 
-        filename = "/tmp/backup-{}.sql".format(
+        filename = "/tmp/backup-{}.sql.gz".format(
             strftime("%Y-%m-%d_%H%M%S", gmtime()))
 
-        completed_process = None
+        return_code = None
         with open(filename, 'w') as backup:
-            completed_process = subprocess.run(
-                [f'/usr/bin/mysqldump', '-h', mysql_host,
-                    '-u', username, database],
-                stdout=backup,
+            mysqldump_process = subprocess.Popen(
+                ['/usr/bin/mysqldump', '-h', mysql_host, '-u', username, database],
+                stdout=subprocess.PIPE,
                 env={'MYSQL_PWD': password})
 
-        try:
-            completed_process.check_returncode()
-        except subprocess.CalledProcessError as e:
-            exit(e)
+            gzip_process = subprocess.Popen(['gzip', '-f'], stdin=mysqldump_process.stdout, stdout=backup)
+
+            return_code = gzip_process.wait()
+
+        if return_code != 0:
+            exit(return_code)
 
         if bucket_name is not None:
             s3.Bucket(bucket_name).upload_file(
